@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -36,8 +38,18 @@ func transfer(destination io.WriteCloser, source io.ReadCloser) {
 }
 
 func handleHTTP(w http.ResponseWriter, req *http.Request) {
-	req.URL.Scheme = "https"
+
+	//req.URL.Scheme = "http"
+	s := strings.Split(req.Host, ":")
+	addr := net.ParseIP(s[0])
+	if addr != nil {
+		req.URL.Scheme = "http"
+	} else {
+		req.URL.Scheme = "https"
+	}
+
 	req.URL.Host = req.Host
+
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
@@ -45,8 +57,13 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer resp.Body.Close()
 	copyHeader(w.Header(), resp.Header)
+	w.Header().Add("x-test-header", "12345")
+	bytes := []byte("Hey, I'm taking over this body!")
+	w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	// io.Copy(w, resp.Body)
+	w.Write(bytes)
 }
 
 func copyHeader(dst, src http.Header) {
