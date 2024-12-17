@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -56,14 +55,38 @@ func handleHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+
 	copyHeader(w.Header(), resp.Header)
 	w.Header().Add("x-test-header", "12345")
-	bytes := []byte("Hey, I'm taking over this body!")
-	w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
 
 	w.WriteHeader(resp.StatusCode)
-	// io.Copy(w, resp.Body)
-	w.Write(bytes)
+
+	finishRead := false
+	for !finishRead {
+		b := make([]byte, 1024)
+		n, err := resp.Body.Read(b)
+
+		if err == io.EOF {
+			finishRead = true
+		}
+
+		if n > 0 {
+			w.Write(b[:n])
+		}
+	}
+
+	//bytes := []byte("Hey, I'm taking over this body!")
+	//w.Header().Set("Content-Length", strconv.Itoa(len(bytes)))
+
+	// b, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// } else {
+	// 	fmt.Println(string(b))
+	// }
+
+	//io.Copy(w, resp.Body)
+	//w.Write(bytes)
 }
 
 func copyHeader(dst, src http.Header) {
